@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+    body, html {
+      height: 100%;
+      
+    }
+
+    .messages-box {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .messages-list {
+      padding-left: 0;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      list-style: none;
+    }
+
+    .message-text {
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .sent {
+      background-color: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .received {
+      background-color: #f1f0f0;
+      align-self: flex-start;
+    }
+
+    .message-form {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px;
+      background-color: #f8f9fa;
+    }
+
+    .message-input {
+      flex: 1;
+      border-radius: 0;
+      border-right: none;
+    }
+
+    .btn-send {
+      border-radius: 0;
+    }
+
+    .chat-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }.loader {
+      border: 5px solid #f3f3f3; /* Light grey */
+      border-top: 5px solid #3498db; /* Blue */
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 2s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+{% endblock %}
+
+
+{% block content %}
+<div class="chat-container" >
+  <div class="card flex-grow-1">
+    <div class="card-header bg-primary text-white">Chat</div>
+    {% if user.is_authenticated %}
+    <div class="card-header bg-primary text-white"><b>Welcome, {{user.username}}</b>   <a style="color: yellow;" href="logout">Logout</a></div>
+    {% else %}
+    <div class="card-header bg-primary text-white"><a style="color: yellow" href="login">Login</a>   <a style="color: yellow;" href="register">Register</a></div>
+    {% endif %}
+    <div class="card-body messages-box" >
+      
+      <ul class="list-unstyled messages-list" style="margin-left: 10%;margin-right: 10%;">
+        
+       
+
+        {% for chat in chats %} 
+          {% if chat.user == request.user %}
+
+            <li class="message sent" >
+          <div class="message-text">
+            <div class="message-sender">
+              <b>You</b>
+            </div>
+            <div class="message-content">
+              <p>{{chat.message|linebreaksbr}}</p>
+            </div>
+          </div>
+        </li>
+
+        <li class="message received">
+          <div class="message-text">
+            <div class="message-sender">
+              <b>AI</b>
+            </div>
+            <div class="message-content">
+              <p>{{chat.response|linebreaksbr}}</p>
+            </div>
+          </div>
+        </li>
+
+          {% endif %}
+        {% endfor %}
+        
+      </ul>
+      
+    </div>
+    <br><br>
+    <br><br>
+    <br><br>
+  </div>
+  <form class="message-form" style="margin-left: 10%;margin-right: 10%;">
+    {%csrf_token%}
+    <div class="input-group" id="sendbtns">
+      <input type="text" class="form-control message-input" placeholder="Type your message..." id="textbox">
+      <div class="input-group-append" >
+        <button type="submit" class="btn btn-primary btn-send" >Send</button>&nbsp;
+        <div class="loader" id="loader" hidden></div>
+        <a href="{% url 'explain' %}" class="btn btn-success" style="color: white;" id="expbtn" onclick="expbtn()">Explain</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+
+
+<script>
+  function expbtn() {
+    
+    const expbtn = document.getElementById("expbtn");
+    const loader = document.getElementById("loader");
+    expbtn.setAttribute("hidden", "hidden");
+    loader.removeAttribute("hidden");
+  }
+  window.scrollTo(0, document.body.scrollHeight);
+  const messagesList = document.querySelector('.messages-list');
+  const messageForm = document.querySelector('.message-form');
+  const messageInput = document.querySelector('.message-input');
+  const sendbtn = document.getElementById("sendbtns");
+  const textbox = document.getElementById("textbox");
+
+  messageForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const message = messageInput.value.trim();
+    if (message.length === 0) {
+      return;
+    }
+    
+    textbox.setAttribute("disabled", "disabled");
+    const messageItem = document.createElement('li');
+    messageItem.classList.add('message', 'sent');
+    messageItem.innerHTML = `
+        <div class="message-text">
+            <div class="message-sender">
+                <b>You</b>
+            </div>
+            <div class="message-content">
+                <p>${message}</p>
+            </div>
+        </div>`;
+      
+    messagesList.appendChild(messageItem);
+    messageInput.value = '';
+
+    fetch('', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        'message': message
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        
+        const response = data.response;
+        responsetext = response;
+        formattedText = (typeof responsetext === 'string') ? responsetext.replace(/\\n/g, '<br>') : responsetext;
+        console.log(formattedText);
+        const messageItem = document.createElement('li');
+        messageItem.classList.add('message', 'received');
+        
+        messageItem.innerHTML = `
+        <div class="message-text">
+            <div class="message-sender">
+              <b>AI Chatbot</b>
+            </div>
+            <div class="message-content">
+                <p>${formattedText}</p>
+            </div>
+        </div>
+          `;
+          window.scrollTo(0, document.body.scrollHeight);
+        messagesList.appendChild(messageItem);
+        location.reload();
+      window.scrollTo(0, document.body.scrollHeight);
+
+        textbox.removeAttribute("disabled");
+      }
+      ).catch((error) => {
+        location.reload();
+        window.scrollTo(0, document.body.scrollHeight);
+
+        alert("Error: " + error);
+        alert("Please try again later");
+        console.error('Error:', error);
+      });
+  });
+
+</script>
+{% endblock %}
